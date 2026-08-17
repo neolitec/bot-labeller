@@ -43,6 +43,7 @@ So the triage does **not** key off the total:
 
 | Triage | Condition | Exit | Action |
 |:--|:--|:--|:--|
+| `ALREADY_LABELLED` | a `bot:` label is already on the PR | 30 | Stop. Report the existing label; a human owns the verdict. |
 | `CONFIRMED` | any hard signal | 20 | Report it. **No AI pass** — the evidence already speaks. |
 | `REVIEW` | no hard signal **and** authorship ≥ 25 | 10 | **Run the AI reading pass below.** |
 | `REVIEW` | no hard signal **and** drive-by ≥ 45 | 10 | **Run the AI reading pass below.** |
@@ -101,17 +102,33 @@ maintainer. That belongs in `CONTRIBUTING.md`, not in a score.
 
 `--label` applies, creating each label on demand:
 
+All labels share the `bot:` prefix so the family groups together and can be filtered
+in one search.
+
 | Label | Colour | When |
 |:--|:--|:--|
-| `ai-authored` | `#57606a` slate | `CONFIRMED` — a neutral fact, not a warning colour |
-| `authorship-unclear` | `#bf8700` gold | `REVIEW` — a reading pass is owed |
-| `drive-by-bot` | `#7d1128` crimson | drive-by ≥ 70 — the only label asserting a problem |
+| `bot:authored` | `#57606a` slate | `CONFIRMED` — a neutral fact, not a warning colour |
+| `bot:unclear` | `#bf8700` gold | `REVIEW` — a reading pass is owed |
+| `bot:drive-by` | `#7d1128` crimson | drive-by ≥ 70 — the only label asserting a problem |
 
-`--json` and `--label` compose in one invocation. A label that is no longer
-warranted is removed on re-run, so a rebase cannot leave a stale verdict behind.
+`--json` and `--label` compose in one invocation.
+
+**Write-once.** If the PR already carries a `bot:` label, the run stops before
+scoring: verdict `ALREADY_LABELLED`, exit `30`, nothing applied and nothing removed.
+A label is a checkpoint a human owns from the moment it lands — re-scoring on a later
+push could flip it (a rebase renaming the `agent/` branch, a body edit stripping the
+giveaway) and silently withdraw a verdict a maintainer is already acting on.
+Automation gets one say. **Only a person removes a label.**
+
+When you hit `ALREADY_LABELLED`, report the existing label and stop — do not work
+around it. `--recheck` scores such a PR read-only if the user explicitly wants a
+fresh reading, and still never touches the label.
 
 Labelling writes to the repository, so only pass `--label` when the user asked for
 labels.
+
+Comments and labels are always written in **English**, whatever language the
+conversation is in — they are repository artefacts read by every contributor.
 
 ## Running it in CI
 

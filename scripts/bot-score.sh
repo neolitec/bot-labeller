@@ -26,9 +26,15 @@
 # the total alone: 80 points of pure circumstance still warrants a reading pass,
 # while one hard signal at 40 does not.
 #
+# LABELS ARE WRITE-ONCE. A label from this tool is a checkpoint a human owns from
+# the moment it lands. If the PR already carries one, the run stops immediately: no
+# re-score, no relabel, and never a removal. Only a person takes a label off. While
+# no label is present, every run is free to evaluate and apply one.
+#
 # Exit codes, for CI use:
 #   0  no reading pass needed        20  machine authorship confirmed (hard signal)
-#   10 reading pass recommended      1   usage or API error
+#   10 reading pass recommended      30  already labelled — a human owns it
+#   1  usage or API error
 #
 # Heuristics, not proof. A determined human can trip any of these, and an agent
 # told to hide will trip none. Read the evidence lines, not the number.
@@ -51,7 +57,12 @@ repo_from_remote() {
 REPO="$(repo_from_remote 2>/dev/null || gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)"
 JSON_OUT=0
 DO_LABEL=0
+RECHECK=""
 TARGET=""
+
+# Shared prefix for every label this tool applies, so the family groups together
+# in the sidebar and can be filtered in one search.
+LABEL_PREFIX="bot:"
 
 die() { printf 'error: %s\n' "$1" >&2; exit 1; }
 
@@ -66,6 +77,9 @@ while [ $# -gt 0 ]; do
     --repo)  REPO="${2:-}"; shift 2 ;;
     --json)  JSON_OUT=1; shift ;;
     --label) DO_LABEL=1; shift ;;
+    # Score a PR that already carries one of our labels. Read-only by design: it
+    # reports, and still never touches the existing label.
+    --recheck) RECHECK=1; DO_LABEL=0; shift ;;
     -h|--help) sed -n '2,34p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) die "unknown flag $1" ;;
     *) TARGET="$1"; shift ;;
@@ -183,6 +197,7 @@ if [ -n "$PR_NUMBER" ]; then
 
   PR_JSON="$(jq -n --argjson p "$PR_RAW" --argjson c "$COMMITS_RAW" '{
     number: $p.number, title: $p.title,
+    existingLabels: [ $p.labels[]?.name ],
     author: { login: $p.user.login },
     createdAt: $p.created_at, body: ($p.body // ""),
     headRefName: $p.head.ref,
@@ -205,6 +220,43 @@ if [ -n "$PR_NUMBER" ]; then
   N_COMMITS="$(jq -r '.commits | length' <<<"$PR_JSON")"
   FIRST_COMMIT_AT="$(jq -r '[.commits[].authoredDate] | sort | first // ""' <<<"$PR_JSON")"
   COMMIT_MSGS="$(jq -r '[.commits[] | .messageHeadline + "\n" + (.messageBody // "")] | join("\n")' <<<"$PR_JSON")"
+
+  # -- write-once: an existing verdict label ends the run -------------------
+  #
+  # A label from this tool is a checkpoint that a human owns from the moment it
+  # lands. Re-scoring could flip it on a later push — a rebase that drops the
+  # `agent/` branch name, or a body edit that removes the giveaway — and silently
+  # overwrite or withdraw a verdict a maintainer is already acting on.
+  #
+  # So: if any of our labels is present, stop here. Do not re-score, do not
+  # relabel, and never remove. Only a human takes a label off. While none is
+  # present, every run is free to evaluate and apply one.
+  EXISTING_OURS="$(jq -r --arg pfx "$LABEL_PREFIX" \
+    '[.existingLabels[] | select(startswith($pfx))] | join(" ")' <<<"$PR_JSON")"
+
+  if [ -n "$EXISTING_OURS" ] && [ -z "$RECHECK" ]; then
+    if [ "$JSON_OUT" = "1" ]; then
+      jq -n --arg login "$LOGIN" --arg repo "$REPO" --arg pr "$PR_NUMBER" \
+            --arg lbl "$EXISTING_OURS" '
+        { login: $login, repo: $repo, pr: $pr,
+          authorship: { score: null, verdict: "not evaluated" },
+          driveby:    { score: null, verdict: "not evaluated" },
+          hardSignals: null,
+          triage: { verdict: "ALREADY_LABELLED",
+                    rationale: ("already carries " + $lbl + " — a human owns this verdict"),
+                    aiReviewNeeded: false },
+          existingLabels: ($lbl | split(" ")),
+          evidence: [] }'
+    else
+      printf '\n  %s  —  %s#%s\n\n' "$LOGIN" "$REPO" "$PR_NUMBER"
+      printf '  TRIAGE      ALREADY_LABELLED\n\n'
+      printf '  This PR already carries %s.\n' "$EXISTING_OURS"
+      printf '  Not re-scored, not relabelled, and the label was left in place —\n'
+      printf '  once applied it is a human review checkpoint. Pass --recheck to\n'
+      printf '  score it anyway (read-only; it still will not touch the label).\n\n'
+    fi
+    exit 30
+  fi
 
   note "PR #$(jq -r .number <<<"$PR_JSON") in $REPO by $LOGIN"
   note "\"$TITLE\""
@@ -395,53 +447,45 @@ fi
 # invocation: the GitHub Action needs both the machine-readable result and the
 # labels, and paying for two API round-trips to get them would be silly.
 #
-# Label taxonomy. The colours encode how much judgement each label carries:
+# Label taxonomy. Every label shares the LABEL_PREFIX so the whole family sorts
+# together in the sidebar and can be spotted, filtered and swept in one go
+# (`label:bot:*` in search, one glance on the PR list).
 #
-#   ai-authored         slate grey  — a neutral fact, deliberately not a warning
-#                                     colour. Disclosed agent use is normal.
-#   authorship-unclear  gold        — attention: something is unresolved and a
-#                                     reading pass is owed.
-#   drive-by-bot        crimson     — the only label that asserts a problem.
+# The colours encode how much judgement each label carries:
 #
-# Named "authorship-unclear" rather than "needs-ai-review" because the latter
-# reads as "review this with an AI" instead of "the authorship needs reviewing".
+#   bot:authored  slate grey  — a neutral fact, deliberately not a warning colour.
+#                               Disclosed agent use is normal.
+#   bot:unclear   gold        — attention: something is unresolved and a reading
+#                               pass is owed.
+#   bot:drive-by  crimson     — the only label that asserts a problem.
 #
 # case, not an associative array: macOS ships bash 3.2, which has no `declare -A`.
 label_color() {
   case "$1" in
-    ai-authored)        echo "57606a" ;;
-    authorship-unclear) echo "bf8700" ;;
-    drive-by-bot)       echo "7d1128" ;;
-    *)                  echo "ededed" ;;
+    "${LABEL_PREFIX}authored") echo "57606a" ;;
+    "${LABEL_PREFIX}unclear")  echo "bf8700" ;;
+    "${LABEL_PREFIX}drive-by") echo "7d1128" ;;
+    *)                         echo "ededed" ;;
   esac
 }
 label_desc() {
   case "$1" in
-    ai-authored)        echo "Machine authorship is self-declared (not a judgement)" ;;
-    authorship-unclear) echo "Circumstantial signals only — authorship needs a reading pass" ;;
-    drive-by-bot)       echo "Account behaves like an unsolicited automation pipeline" ;;
-    *)                  echo "applied by bot-labeller" ;;
+    "${LABEL_PREFIX}authored") echo "Machine authorship is self-declared (not a judgement)" ;;
+    "${LABEL_PREFIX}unclear")  echo "Circumstantial signals only — authorship needs a reading pass" ;;
+    "${LABEL_PREFIX}drive-by") echo "Account behaves like an unsolicited automation pipeline" ;;
+    *)                         echo "applied by bot-labeller" ;;
   esac
 }
 
-ALL_LABELS="ai-authored authorship-unclear drive-by-bot"
-
 if [ "$DO_LABEL" = "1" ] && [ -n "${PR_NUMBER:-}" ]; then
   WANTED=""
-  [ "$TRIAGE" = "CONFIRMED" ] && WANTED="ai-authored"
-  [ "$TRIAGE" = "REVIEW" ]    && WANTED="authorship-unclear"
-  [ "$DRIVEBY_SCORE" -ge 70 ] && WANTED="${WANTED:+$WANTED }drive-by-bot"
+  [ "$TRIAGE" = "CONFIRMED" ] && WANTED="${LABEL_PREFIX}authored"
+  [ "$TRIAGE" = "REVIEW" ]    && WANTED="${LABEL_PREFIX}unclear"
+  [ "$DRIVEBY_SCORE" -ge 70 ] && WANTED="${WANTED:+$WANTED }${LABEL_PREFIX}drive-by"
 
-  # Drop any label this tool previously applied but no longer warrants, so a
-  # re-run after a rebase or a force-push cannot leave a stale verdict behind.
-  for l in $ALL_LABELS; do
-    keep=0
-    for k in $WANTED; do [ "$k" = "$l" ] && keep=1; done
-    if [ "$keep" = "0" ]; then
-      gh api -X DELETE "repos/$REPO/issues/$PR_NUMBER/labels/$l" >/dev/null 2>&1 || true
-    fi
-  done
-
+  # Apply only. Nothing is ever removed: reaching this point means the PR carried
+  # none of our labels, and once one lands it belongs to a human (see the
+  # write-once check above). There is deliberately no un-label path.
   if [ -n "$WANTED" ]; then
     for l in $WANTED; do
       gh label create "$l" --repo "$REPO" \

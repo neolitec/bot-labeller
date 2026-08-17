@@ -27,7 +27,10 @@ inputs:
     required: false
     default: 'true'
   label:
-    description: 'Apply ai-authored / authorship-unclear / drive-by-bot as warranted.'
+    description: >-
+      Apply bot:authored / bot:unclear / bot:drive-by as warranted. Write-once —
+      if the PR already carries one, the run stops and nothing is changed or
+      removed, because a label is a human review checkpoint from then on.
     required: false
     default: 'true'
   fail-on:
@@ -46,7 +49,7 @@ outputs:
     description: 'Drive-by score, 0-100.'
     value: ${{ steps.score.outputs.driveby }}
   triage:
-    description: 'CONFIRMED, REVIEW or CLEAR.'
+    description: 'CONFIRMED, REVIEW, CLEAR, or ALREADY_LABELLED (a human owns it).'
     value: ${{ steps.score.outputs.triage }}
   ai-review-needed:
     description: 'true when the triage verdict is REVIEW.'
@@ -105,8 +108,10 @@ runs:
         jq -r '"::notice::bot-labeller \(.triage.verdict) — authorship \(.authorship.score)/100, drive-by \(.driveby.score)/100"' \
           "$RUNNER_TEMP/bl-score.json"
 
+    # Skipped once a label exists: the run stopped before scoring, so there is
+    # nothing new to say, and the comment from the first pass already stands.
     - name: Post or update the sticky comment
-      if: inputs.comment == 'true'
+      if: inputs.comment == 'true' && steps.score.outputs.triage != 'ALREADY_LABELLED'
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.github-token }}

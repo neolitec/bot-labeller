@@ -58,7 +58,11 @@ jobs:
 ```
 
 It scores the PR, applies the right label, and posts **one** comment that it edits
-on later pushes rather than stacking a new report each time.
+on later pushes rather than stacking a new report each time. The comment is always
+written in English, regardless of the repository's language.
+
+Once a `bot:` label is on the PR, later runs stop immediately and change nothing —
+see [write-once](#labels-are-write-once).
 
 ### Why `pull_request_target`, and why that is safe here
 
@@ -84,7 +88,7 @@ Keep those in a separate `pull_request` workflow.
 | `repository` | current repo | `owner/name`. |
 | `github-token` | `github.token` | Needs `pull-requests: write`. |
 | `comment` | `true` | Post/update the sticky comment. |
-| `label` | `true` | Apply labels. |
+| `label` | `true` | Apply labels. **Write-once** — an existing `bot:` label stops the run untouched. |
 | `fail-on` | *(empty)* | `CONFIRMED`, `REVIEW`, or both comma-separated. Empty never fails — blocking a PR on a heuristic is rarely what you want. |
 
 ### Outputs
@@ -101,19 +105,38 @@ step can gate on the result:
 
 ## Labels
 
+Every label shares the `bot:` prefix, so the family sorts together in the sidebar and
+the whole set is one search away — `label:bot:authored`, or just scan for `bot:` on
+the PR list.
+
 | Label | Colour | Meaning |
 |:--|:--|:--|
-| `ai-authored` | ![#57606a](https://placehold.co/12/57606a/57606a.png) `#57606a` slate | Machine authorship is self-declared. A **neutral fact** — deliberately not a warning colour. |
-| `authorship-unclear` | ![#bf8700](https://placehold.co/12/bf8700/bf8700.png) `#bf8700` gold | Circumstantial signals only; a reading pass is owed. |
-| `drive-by-bot` | ![#7d1128](https://placehold.co/12/7d1128/7d1128.png) `#7d1128` crimson | The only label that asserts a problem. |
+| `bot:authored` | `#57606a` slate | Machine authorship is self-declared. A **neutral fact** — deliberately not a warning colour. |
+| `bot:unclear` | `#bf8700` gold | Circumstantial signals only; a reading pass is owed. |
+| `bot:drive-by` | `#7d1128` crimson | The only label that asserts a problem. |
 
 The colours carry the argument: grey for a fact, gold for attention, crimson for the
-one case that is actually a complaint. `authorship-unclear` is named that way rather
-than `needs-ai-review` because the latter reads as "review this with an AI" instead
-of "the authorship needs reviewing".
+one case that is actually a complaint.
 
-Labels are created on demand, and a label that is no longer warranted is removed on
-re-run — so a rebase cannot leave a stale verdict behind.
+### Labels are write-once
+
+**If the PR already carries a `bot:` label, the run stops immediately** — no
+re-score, no relabel, and never a removal. The verdict exits `30`
+(`ALREADY_LABELLED`) and the comment step is skipped.
+
+This is deliberate. A label is a checkpoint that a human owns from the moment it
+lands. Re-scoring on every push would let a later commit flip it: a rebase that
+renames the `agent/` branch, or a body edit that strips the giveaway, would silently
+withdraw a verdict a maintainer is already acting on. Automation gets exactly one
+say; after that it is a person's call, and **only a person removes a label**.
+
+While no `bot:` label is present, every run is free to evaluate and apply one.
+
+To score a labelled PR anyway, `--recheck` reports without touching the label:
+
+```bash
+./scripts/bot-score.sh --recheck 187
+```
 
 ## Standalone use
 
@@ -124,7 +147,8 @@ The scorer runs perfectly well on its own:
 ./scripts/bot-score.sh https://github.com/owner/repo/pull/12
 ./scripts/bot-score.sh @some-user                           # account only
 ./scripts/bot-score.sh --json 187                           # machine-readable
-./scripts/bot-score.sh --label 187                          # apply GitHub labels
+./scripts/bot-score.sh --label 187                          # apply labels (write-once)
+./scripts/bot-score.sh --recheck 187                        # re-score a labelled PR, read-only
 ./scripts/bot-score.sh --help
 ```
 
@@ -161,10 +185,14 @@ Triage therefore keys off signal *quality*, not the total:
 
 | Triage | Condition | Exit code | Meaning |
 |:--|:--|:--|:--|
+| `ALREADY_LABELLED` | a `bot:` label is present | `30` | Stop. A human owns this verdict. |
 | `CONFIRMED` | any hard signal | `20` | Settled. No AI pass needed. |
 | `REVIEW` | no hard signal, authorship ≥ 25 | `10` | Ambiguous. Send to an AI reading pass. |
 | `REVIEW` | no hard signal, drive-by ≥ 45 | `10` | Account looks like a pipeline. |
 | `CLEAR` | everything else | `0` | Nothing to answer. |
+
+The label check runs **first**, before any scoring, so a labelled PR costs one API
+call instead of a full evaluation.
 
 80 points of pure circumstance still earns a reading pass; one hard signal at 25 does
 not. That asymmetry is deliberate — it is what keeps the expensive step rare and the
