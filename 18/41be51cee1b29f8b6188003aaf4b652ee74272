@@ -1,0 +1,29 @@
+.gitignore
+  s_e3ad0fe7f05d5b::t_f941a285d9e197 1-2
+license
+  s_e3ad0fe7f05d5b::t_d17fdd46b0c7a1 1-21
+scripts/self-test.sh
+  s_e3ad0fe7f05d5b::t_4cd88e064c4349 1-50
+README.md
+  s_e3ad0fe7f05d5b::t_59c1df73634356 1-134
+SKILL.md
+  s_e3ad0fe7f05d5b::t_107347fb094d34 1-104
+scripts/bot-score.sh
+  s_e3ad0fe7f05d5b::t_4d560b47b3c102 1-450
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "1841be51cee1b29f8b6188003aaf4b652ee74272",
+  "prompts": {},
+  "sessions": {
+    "s_e3ad0fe7f05d5b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "71b1753b-1555-47a8-8ba4-0f68954d5e8b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Kevin Manson <kevin.manson@qohash.com>"
+    }
+  }
+}
