@@ -1,0 +1,27 @@
+# Dogfood: this repo runs its own action on its own incoming PRs.
+#
+# It references the released @v1 rather than `uses: ./` because on
+# pull_request_target a local reference would require a checkout step, and the
+# whole security argument of this action is that the workflow holding the write
+# token contains no checkout at all (see SECURITY.md). Running the released tag
+# also means every incoming PR exercises exactly what consumers run.
+
+name: bot-labeller
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: bot-labeller-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: neolitec/bot-labeller@v1
