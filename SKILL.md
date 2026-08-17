@@ -107,9 +107,9 @@ in one search.
 
 | Label | Colour | When |
 |:--|:--|:--|
-| `bot:authored` | `#57606a` slate | `CONFIRMED` — a neutral fact, not a warning colour |
-| `bot:unclear` | `#bf8700` gold | `REVIEW` — a reading pass is owed |
-| `bot:drive-by` | `#7d1128` crimson | drive-by ≥ 70 — the only label asserting a problem |
+| `bot:authored` | `#1f6feb` blue | `CONFIRMED` — an informational fact, not a warning colour |
+| `bot:unclear` | `#fbca04` yellow | `REVIEW` — a reading pass is owed |
+| `bot:drive-by` | `#d73a4a` red | drive-by ≥ 70 — the only label asserting a problem |
 
 `--json` and `--label` compose in one invocation.
 

@@ -1,21 +1,47 @@
+<div align="center">
+  <img src="assets/logo.svg" alt="bot-labeller — a label tag with a robot face" width="150">
+
 # bot-labeller
 
-A Claude Code skill that assesses whether a GitHub pull request was machine-authored
-— and, separately, whether the account behaves like a drive-by automation bot.
+**Know which pull requests were machine-written — before you spend human time on them.**
 
-It scores deterministically first and only escalates to a model when a model would
-actually add information.
+A GitHub Action that scores every incoming PR for machine authorship and
+drive-by automation, applies an honest label, and posts a single evidence
+report. Deterministic, dependency-free, and it never runs the contributor's code.
 
-## Why two scores
+[![ci](https://github.com/neolitec/bot-labeller/actions/workflows/ci.yml/badge.svg)](https://github.com/neolitec/bot-labeller/actions/workflows/ci.yml)
+[![release](https://img.shields.io/github/v/release/neolitec/bot-labeller?logo=github&color=1f6feb)](https://github.com/neolitec/bot-labeller/releases)
+[![marketplace](https://img.shields.io/badge/marketplace-bot--labeller-1f6feb?logo=github)](https://github.com/marketplace/actions/bot-labeller)
+[![license: MIT](https://img.shields.io/badge/license-MIT-1f6feb)](LICENSE)
 
-"Is this a bot?" is two questions wearing one coat:
+[Quick start](#quick-start) ·
+[How it works](#two-scores-not-one) ·
+[Labels](#the-labels) ·
+[Action reference](#action-reference) ·
+[Claude skill](#the-claude-code-skill) ·
+[Security](#the-security-model)
 
-- **AUTHORSHIP** — was this diff machine-produced?
-- **DRIVE-BY** — does this account fork-and-PR unrelated projects at a cadence no
-  person sustains, with no prior involvement?
+</div>
 
-A high authorship score is not an accusation. Maintainers use Claude Code, Copilot
-and Cursor, and disclosing it is healthy. The combination is what matters:
+---
+
+Every public repository now receives pull requests written by machines. Some come
+from your own contributors using Claude Code, Copilot or Cursor — welcome, and
+increasingly the norm. Others come from accounts that forked your repo **23 seconds**
+before opening a PR, landed it four minutes after the issue was filed, and will
+never answer a review comment.
+
+The failure mode is not missing them. It is treating both the same.
+
+## Two scores, not one
+
+"Is this a bot?" is two questions wearing one coat, and bot-labeller refuses to
+collapse them:
+
+| Axis | Question | What a high score means |
+|:--|:--|:--|
+| **AUTHORSHIP** | Was this diff machine-produced? | Nothing on its own — plenty of good PRs are agent-written. |
+| **DRIVE-BY** | Does this account fork-and-PR unrelated projects at a cadence no person sustains? | This is the axis that predicts unsolicited, low-effort volume. |
 
 ```
 high AUTHORSHIP + low DRIVE-BY   → a maintainer used an agent. Normal.
@@ -23,23 +49,45 @@ high AUTHORSHIP + high DRIVE-BY  → a drive-by bot.
 low  AUTHORSHIP + high DRIVE-BY  → worth a look; the diff is not the only evidence.
 ```
 
-## Install
+A high authorship score is not an accusation — it is a fact worth having on the
+record, in a deliberately neutral colour.
 
-Clone into your Claude Code skills directory:
+## What you get
 
-```bash
-git clone https://github.com/neolitec/bot-labeller ~/.claude/skills/bot-labeller
+- 🔍 **Evidence, not vibes** — every point printed carries the literal text that
+  earned it. Read the evidence, not the number.
+- 🏷️ **Three labels, write-once** — automation gets exactly one say; from then on
+  a human owns the verdict, and only a human removes a label.
+- 🔒 **Never runs contributed code** — no checkout, no install, no build. Metadata
+  in, one label and one comment out.
+- 💬 **One sticky comment** — edited in place on later pushes, never stacked.
+- 🧮 **Deterministic first, AI second** — hard signals settle it for free; only
+  genuinely ambiguous PRs are flagged for a model's reading pass.
+- 🪶 **Zero infrastructure** — a composite action in pure bash over `gh` and `jq`.
+  No Docker image to pull, no Node runtime, nothing to build.
+
+Here is the scorer looking at a real drive-by:
+
+```
+  pollychen-lab  —  neolitec/kevlar-tabs#187
+
+  AUTHORSHIP  [####################]  100/100   very likely machine-authored
+  DRIVE-BY    [####################]  100/100   very likely an automation account
+
+  TRIAGE      CONFIRMED machine authorship is self-declared — no reading pass needed
+
+  AUTHORSHIP signals
+    [hard] +25  branch sits in an agent namespace — matched "agent/"
+           +15  body reports its own sandbox limits — matched "browser binaries"
+           +20  fork to PR in 23s — no human reads a codebase that fast
+           +18  PR landed 4m 39s after issue #186 was filed
 ```
 
-Then ask Claude things like *"is PR 187 written by a bot?"* or *"triage the incoming
-PRs on this repo"*.
+## Quick start
 
-Requires [`gh`](https://cli.github.com) (authenticated) and `jq`.
-
-## GitHub Action
+Drop this in `.github/workflows/bot-labeller.yml`:
 
 ```yaml
-# .github/workflows/bot-labeller.yml
 name: bot-labeller
 
 on:
@@ -57,28 +105,72 @@ jobs:
       - uses: neolitec/bot-labeller@v1
 ```
 
-It scores the PR, applies the right label, and posts **one** comment that it edits
-on later pushes rather than stacking a new report each time. The comment is always
-written in English, regardless of the repository's language.
+That is the whole setup. From the next PR onward, the action scores it, applies
+the right label, and posts **one** comment that it edits on later pushes rather
+than stacking a new report each time. Comments and labels are always written in
+English, regardless of the repository's language.
 
-Once a `bot:` label is on the PR, later runs stop immediately and change nothing —
-see [write-once](#labels-are-write-once).
+A commented copy of this workflow, including the optional knobs, lives in
+[`examples/bot-labeller.yml`](examples/bot-labeller.yml).
 
-### Why `pull_request_target`, and why that is safe here
+## The labels
 
-The case this check exists for is incoming PRs from forks — and on a `pull_request`
-event from a fork, `GITHUB_TOKEN` is **read-only**. The label and the comment both
-fail. `pull_request_target` runs in the base repository's context, where the token
-can write.
+Every label shares the `bot:` prefix, so the family sorts together in the sidebar
+and the whole set is one search away — `label:bot:authored`, or just scan for
+`bot:` on the PR list.
 
-That trigger is genuinely dangerous when misused, because it hands a write token to
-a workflow running against a PR the author controls. It is safe here for one
-specific reason: **this action never checks out or executes the PR's code.** There is
-no `actions/checkout`, no install, no build. It reads PR metadata over the API and
-writes a label and a comment. Nothing the contributor wrote is ever run.
+| Label | Meaning |
+|:--|:--|
+| ![bot:authored](assets/labels/bot-authored.svg) | Machine authorship is self-declared. A **neutral fact** — informational blue, deliberately not a warning colour. |
+| ![bot:unclear](assets/labels/bot-unclear.svg) | Circumstantial signals only; a reading pass is owed. |
+| ![bot:drive-by](assets/labels/bot-drive-by.svg) | The only label that asserts a problem. |
+
+The colours carry the argument, in hues every GitHub user already knows: blue for
+a fact (like `documentation`), yellow for attention, red for the one case that is
+actually a complaint (like `bug`). Labels are created on demand — nothing to set
+up in the repository first — and if your repo already has them, your colours are
+left alone.
+
+Self-declared bots (GitHub Apps, `[bot]` accounts — dependabot, renovate) are
+**exempt**: no label, no comment. They already told you what they are.
+
+### Labels are write-once
+
+**If the PR already carries a `bot:` label, the run stops immediately** — no
+re-score, no relabel, and never a removal. The verdict exits `30`
+(`ALREADY_LABELLED`) and the comment step is skipped.
+
+This is deliberate. A label is a checkpoint that a human owns from the moment it
+lands. Re-scoring on every push would let a later commit flip it: a rebase that
+renames the `agent/` branch, or a body edit that strips the giveaway, would
+silently withdraw a verdict a maintainer is already acting on. Automation gets
+exactly one say; after that it is a person's call, and **only a person removes a
+label**.
+
+While no `bot:` label is present, every run is free to evaluate and apply one.
+
+## The security model
+
+The case this check exists for is incoming PRs from forks — and on a
+`pull_request` event from a fork, `GITHUB_TOKEN` is **read-only**. The label and
+the comment both fail. `pull_request_target` runs in the base repository's
+context, where the token can write.
+
+That trigger is genuinely dangerous when misused, because it hands a write token
+to a workflow running against a PR the author controls. It is safe here for one
+specific reason: **this action never checks out or executes the PR's code.** There
+is no `actions/checkout`, no install, no build. It reads PR metadata over the API
+and writes a label and a comment. Nothing the contributor wrote is ever run.
 
 If you add a checkout or build step to that workflow file, the guarantee is gone.
 Keep those in a separate `pull_request` workflow.
+
+The action holds a write token, so pinning `@v1.2.0` — or a commit SHA — instead
+of the mobile `@v1` is a legitimate choice if you would rather review each change
+before it runs against your pull requests. See [SECURITY.md](SECURITY.md) for the
+full threat model and how to report a vulnerability.
+
+## Action reference
 
 ### Inputs
 
@@ -103,83 +195,15 @@ step can gate on the result:
         run: echo "send this one to a reading pass"
 ```
 
-## Labels
-
-Every label shares the `bot:` prefix, so the family sorts together in the sidebar and
-the whole set is one search away — `label:bot:authored`, or just scan for `bot:` on
-the PR list.
-
-| Label | Colour | Meaning |
-|:--|:--|:--|
-| `bot:authored` | `#57606a` slate | Machine authorship is self-declared. A **neutral fact** — deliberately not a warning colour. |
-| `bot:unclear` | `#bf8700` gold | Circumstantial signals only; a reading pass is owed. |
-| `bot:drive-by` | `#7d1128` crimson | The only label that asserts a problem. |
-
-The colours carry the argument: grey for a fact, gold for attention, crimson for the
-one case that is actually a complaint.
-
-### Labels are write-once
-
-**If the PR already carries a `bot:` label, the run stops immediately** — no
-re-score, no relabel, and never a removal. The verdict exits `30`
-(`ALREADY_LABELLED`) and the comment step is skipped.
-
-This is deliberate. A label is a checkpoint that a human owns from the moment it
-lands. Re-scoring on every push would let a later commit flip it: a rebase that
-renames the `agent/` branch, or a body edit that strips the giveaway, would silently
-withdraw a verdict a maintainer is already acting on. Automation gets exactly one
-say; after that it is a person's call, and **only a person removes a label**.
-
-While no `bot:` label is present, every run is free to evaluate and apply one.
-
-To score a labelled PR anyway, `--recheck` reports without touching the label:
-
-```bash
-./scripts/bot-score.sh --recheck 187
-```
-
-## Standalone use
-
-The scorer runs perfectly well on its own:
-
-```bash
-./scripts/bot-score.sh 187                                  # PR in the current repo
-./scripts/bot-score.sh https://github.com/owner/repo/pull/12
-./scripts/bot-score.sh @some-user                           # account only
-./scripts/bot-score.sh --json 187                           # machine-readable
-./scripts/bot-score.sh --label 187                          # apply labels (write-once)
-./scripts/bot-score.sh --recheck 187                        # re-score a labelled PR, read-only
-./scripts/bot-score.sh --help
-```
-
-Example:
-
-```
-  pollychen-lab  —  neolitec/kevlar-tabs#187
-
-  AUTHORSHIP  [####################]  100/100   very likely machine-authored
-  DRIVE-BY    [####################]  100/100   very likely an automation account
-
-  TRIAGE      CONFIRMED machine authorship is self-declared — no reading pass needed
-
-  AUTHORSHIP signals
-    [hard] +25  branch sits in an agent namespace — matched "agent/"
-           +15  body reports its own sandbox limits — matched "browser binaries"
-           +20  fork to PR in 23s — no human reads a codebase that fast
-           +18  PR landed 4m 39s after issue #186 was filed
-```
-
-Every point printed carries the evidence that earned it, including the literal text
-that matched. Read the evidence, not the number.
-
-## Hard vs soft, and the review band
+## How the triage decides
 
 A **hard** signal is self-declaring: a registered GitHub App, an agent
 `Co-Authored-By` trailer, a generation notice, an `agent/` branch namespace, a
 `[bot]` title tag. It settles authorship alone.
 
-A **soft** signal is circumstantial: fork-to-PR latency, issue-to-PR latency, prose
-shape, sandbox self-reports, account statistics. Any pile of these stays suggestive.
+A **soft** signal is circumstantial: fork-to-PR latency, issue-to-PR latency,
+prose shape, sandbox self-reports, account statistics. Any pile of these stays
+suggestive.
 
 Triage therefore keys off signal *quality*, not the total:
 
@@ -192,20 +216,15 @@ Triage therefore keys off signal *quality*, not the total:
 | `REVIEW` | no hard signal, drive-by ≥ 45 | `10` | Account looks like a pipeline. |
 | `CLEAR` | everything else | `0` | Nothing to answer. |
 
-The label check runs **first**, before any scoring, so a labelled PR costs one API
-call instead of a full evaluation.
+The label check runs **first**, before any scoring, so a labelled PR costs one
+API call instead of a full evaluation.
 
-80 points of pure circumstance still earns a reading pass; one hard signal at 25 does
-not. That asymmetry is deliberate — it is what keeps the expensive step rare and the
-cheap step honest.
+80 points of pure circumstance still earns a reading pass; one hard signal at 25
+does not. That asymmetry is deliberate — it is what keeps the expensive step rare
+and the cheap step honest.
 
-Exit codes make it usable from CI:
-
-```yaml
-- run: ./scripts/bot-score.sh --label "$PR" || [ $? -eq 10 ] || [ $? -eq 20 ]
-```
-
-## What it looks at
+<details>
+<summary><strong>What it looks at</strong></summary>
 
 **Authorship** — agent branch namespaces (`agent/`, `claude/`, `codex/`, `cursor/`,
 `devin/`, `sweep/`, …); agent tool names anywhere in the branch; self-declared title
@@ -219,14 +238,66 @@ latency; issue→PR latency; multi-commit burst spans.
 PR events as a share of all activity; one-shot repos (a single PR, no follow-up);
 same-minute fork+PR pairs.
 
+</details>
+
+## Standalone CLI
+
+The scorer at the action's core runs perfectly well on its own — all it needs is
+[`gh`](https://cli.github.com) (authenticated) and `jq`:
+
+```bash
+./scripts/bot-score.sh 187                                  # PR in the current repo
+./scripts/bot-score.sh https://github.com/owner/repo/pull/12
+./scripts/bot-score.sh @some-user                           # account only
+./scripts/bot-score.sh --json 187                           # machine-readable
+./scripts/bot-score.sh --label 187                          # apply labels (write-once)
+./scripts/bot-score.sh --recheck 187                        # re-score a labelled PR, read-only
+./scripts/bot-score.sh --help
+```
+
+Exit codes mirror the triage verdicts, so it drops straight into any CI:
+
+```yaml
+- run: ./scripts/bot-score.sh --label "$PR" || [ $? -eq 10 ] || [ $? -eq 20 ]
+```
+
+## The Claude Code skill
+
+The action stops, on purpose, where determinism stops: a `REVIEW` verdict means
+"a regex cannot answer this — a reader could." This repo doubles as a
+[Claude Code](https://claude.com/claude-code) skill that supplies that reader.
+
+It runs the same scorer first, then — only in the `REVIEW` band — reads the diff
+and the prose the way a maintainer would: does the body explain *why* or only
+restate *what*; does the change solve the problem or the problem's description;
+does it claim validation it could not have run. Hard-confirmed and clear PRs
+never spend a model call.
+
+Install it by cloning into your skills directory:
+
+```bash
+git clone https://github.com/neolitec/bot-labeller ~/.claude/skills/bot-labeller
+```
+
+Then ask Claude things like:
+
+> *"Is PR 187 written by a bot?"*
+> *"Triage the incoming PRs on this repo."*
+> *"Audit @some-user — do they drive-by?"*
+
+The skill reports both scores with the evidence lines that drove them, states the
+axis distinction explicitly so "AI-assisted" is never read as an accusation, and
+only touches labels when asked. See [SKILL.md](SKILL.md) for the full playbook.
+
 ## Testing
 
 ```bash
 ./scripts/self-test.sh
 ```
 
-Asserts the triage band matrix offline, including the corners no real PR happens to
-cover. CI runs the same script on every pull request.
+Asserts the triage band matrix offline, including the corners no real PR happens
+to cover. CI runs the same script on every pull request, and the release
+pipeline runs it again before anything ships.
 
 ## Versioning and releases
 
@@ -267,15 +338,24 @@ labels:
 - **major** — a renamed or removed input, or a change to what the labels mean;
   publish it as `v2` and leave `v1` where it is
 
-## Limits
+## Honest limits
 
-These are heuristics, not proof. A determined human trips several of them; an agent
-instructed to blend in trips none. The tool is built to narrow attention, and it
-deliberately reports evidence rather than a verdict.
+These are heuristics, not proof. A determined human trips several of them; an
+agent instructed to blend in trips none. The tool is built to narrow attention,
+and it deliberately reports evidence rather than a verdict.
 
 It also cannot see private activity, and GitHub's public events feed only reaches
 back 90 days or 300 events.
 
+Whether your project accepts unsolicited agent-authored PRs at all is a policy
+question — it belongs in your `CONTRIBUTING.md`, not in a score.
+
+## Contributing
+
+Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Agent-assisted
+PRs are fine here, for obvious reasons; just disclose them. This repo runs its
+own action on itself, so an undisclosed one will label itself.
+
 ## License
 
-MIT
+[MIT](LICENSE) © Kevin Manson

@@ -472,20 +472,25 @@ fi
 # together in the sidebar and can be spotted, filtered and swept in one go
 # (`label:bot:*` in search, one glance on the PR list).
 #
-# The colours encode how much judgement each label carries:
+# The colours encode how much judgement each label carries, and they borrow the
+# hues GitHub users already know from the default label set:
 #
-#   bot:authored  slate grey  — a neutral fact, deliberately not a warning colour.
-#                               Disclosed agent use is normal.
-#   bot:unclear   gold        — attention: something is unresolved and a reading
-#                               pass is owed.
-#   bot:drive-by  crimson     — the only label that asserts a problem.
+#   bot:authored  blue    — informational, like `documentation`. A neutral fact,
+#                           deliberately not a warning colour. Disclosed agent
+#                           use is normal.
+#   bot:unclear   yellow  — attention: something is unresolved and a reading
+#                           pass is owed.
+#   bot:drive-by  red     — like `bug`: the only label that asserts a problem.
+#
+# Create-only: if a repo already has these labels (possibly recoloured by a
+# maintainer), `gh label create` fails silently below and their colours stand.
 #
 # case, not an associative array: macOS ships bash 3.2, which has no `declare -A`.
 label_color() {
   case "$1" in
-    "${LABEL_PREFIX}authored") echo "57606a" ;;
-    "${LABEL_PREFIX}unclear")  echo "bf8700" ;;
-    "${LABEL_PREFIX}drive-by") echo "7d1128" ;;
+    "${LABEL_PREFIX}authored") echo "1f6feb" ;;
+    "${LABEL_PREFIX}unclear")  echo "fbca04" ;;
+    "${LABEL_PREFIX}drive-by") echo "d73a4a" ;;
     *)                         echo "ededed" ;;
   esac
 }
