@@ -1,0 +1,65 @@
+# Releasing is tag-driven: pushing an immutable vX.Y.Z tag is the entire
+# interface. This workflow then does the two things that are easy to get wrong by
+# hand — cutting the GitHub Release, and re-pointing the mobile major tag so that
+# `uses: neolitec/bot-labeller@v1` picks the new code up.
+#
+# Why both tags exist: consumers who want to be pinned reference vX.Y.Z, which
+# never moves. Consumers who want fixes automatically reference vX, which does.
+# Only publishing the mobile tag, as this repo did at first, leaves nobody able
+# to pin at all.
+
+name: release
+
+on:
+  push:
+    # vX.Y.Z only. The major tag this workflow pushes (v1) deliberately does not
+    # match, so re-pointing it cannot re-trigger the workflow.
+    tags: ['v[0-9]+.[0-9]+.[0-9]+']
+
+permissions:
+  contents: write # create the release, move the major tag
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # --generate-notes needs the history back to the last tag
+
+      # A released action is consumed by tag, so a bad release is live the moment
+      # it lands. Gate on the same matrix CI runs rather than trusting the tag.
+      - name: Triage band matrix
+        run: ./scripts/self-test.sh
+
+      - name: Derive the tags
+        id: v
+        run: |
+          TAG="$GITHUB_REF_NAME"
+          echo "tag=$TAG"        >> "$GITHUB_OUTPUT"
+          echo "major=${TAG%%.*}" >> "$GITHUB_OUTPUT"
+
+      - name: Cut the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.v.outputs.tag }}
+        run: |
+          gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$TAG" \
+            --generate-notes \
+            --verify-tag
+
+      # Last, on purpose: if the self-test or the release fails, consumers on the
+      # major tag stay on the previous good commit instead of being moved onto a
+      # release that never completed.
+      - name: Re-point the major tag
+        env:
+          MAJOR: ${{ steps.v.outputs.major }}
+          TAG: ${{ steps.v.outputs.tag }}
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git tag -f -a "$MAJOR" -m "$MAJOR: latest ${MAJOR}.x release ($TAG)"
+          git push --force origin "refs/tags/$MAJOR"

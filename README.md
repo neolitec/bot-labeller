@@ -226,7 +226,46 @@ same-minute fork+PR pairs.
 ```
 
 Asserts the triage band matrix offline, including the corners no real PR happens to
-cover.
+cover. CI runs the same script on every pull request.
+
+## Versioning and releases
+
+Two kinds of tag, on purpose:
+
+| Tag | Moves? | For |
+|:--|:--|:--|
+| `v1.2.0` | never | pinning to an exact, auditable commit |
+| `v1` | yes, to the newest `v1.x` | getting fixes without editing your workflow |
+
+`uses: neolitec/bot-labeller@v1` is the convenient default. Pin `@v1.2.0`, or a
+commit SHA, if you would rather review each change before it runs against your
+pull requests — the action holds a write token, so that is a legitimate choice.
+
+### Cutting a release
+
+Pushing an immutable `vX.Y.Z` tag is the whole interface. Everything else is
+automated by `.github/workflows/release.yml`:
+
+```bash
+git switch main && git pull
+git tag -a v1.2.0 -m 'v1.2.0'
+git push origin v1.2.0
+```
+
+The workflow then runs the self-test, cuts the GitHub Release with generated
+notes, and re-points `v1` at the new commit — in that order, so a failing test
+leaves consumers on the last good release rather than on a half-finished one.
+
+Do **not** move `v1` by hand. Consumers are pointed at it, so it changes their
+behaviour silently and with no release notes to explain what changed.
+
+Which number to bump, given the action's surface is its inputs, outputs and
+labels:
+
+- **patch** — a scoring fix that does not change the taxonomy
+- **minor** — a new input, output or triage verdict
+- **major** — a renamed or removed input, or a change to what the labels mean;
+  publish it as `v2` and leave `v1` where it is
 
 ## Limits
 
