@@ -1,0 +1,46 @@
+# Drop this in .github/workflows/bot-labeller.yml
+#
+# WHY pull_request_target AND NOT pull_request
+#
+# The whole point of this check is incoming PRs from forks — and on a
+# `pull_request` event from a fork, GITHUB_TOKEN is read-only. The label and the
+# comment would both fail. `pull_request_target` runs in the base repository's
+# context, so the token can write.
+#
+# That trigger is dangerous when misused, because it grants a write token to a
+# workflow evaluated against a PR the author controls. It is safe HERE for one
+# specific reason: this workflow never checks out or executes the PR's code. There
+# is no `actions/checkout`, no install step, no build. The action reads PR
+# metadata over the API and writes a label and a comment. Nothing the contributor
+# wrote is ever run.
+#
+# If you add a checkout or a build step to this file, that guarantee is gone.
+# Keep those in a separate `pull_request` workflow.
+
+name: bot-labeller
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write # labels and the comment
+
+concurrency:
+  group: bot-labeller-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    # Skip your own PRs if you like — but note that this catches disclosed agent
+    # use by maintainers too, which is often exactly what you want on the record.
+    # if: github.event.pull_request.head.repo.full_name != github.repository
+    steps:
+      - uses: neolitec/bot-labeller@v1
+        with:
+          comment: true
+          label: true
+          # fail-on: '' by default. Blocking a PR on a heuristic is rarely right;
+          # set it to REVIEW only if you want the queue to stop for a human look.

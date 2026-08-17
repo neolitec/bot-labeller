@@ -36,6 +36,85 @@ PRs on this repo"*.
 
 Requires [`gh`](https://cli.github.com) (authenticated) and `jq`.
 
+## GitHub Action
+
+```yaml
+# .github/workflows/bot-labeller.yml
+name: bot-labeller
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: neolitec/bot-labeller@v1
+```
+
+It scores the PR, applies the right label, and posts **one** comment that it edits
+on later pushes rather than stacking a new report each time.
+
+### Why `pull_request_target`, and why that is safe here
+
+The case this check exists for is incoming PRs from forks — and on a `pull_request`
+event from a fork, `GITHUB_TOKEN` is **read-only**. The label and the comment both
+fail. `pull_request_target` runs in the base repository's context, where the token
+can write.
+
+That trigger is genuinely dangerous when misused, because it hands a write token to
+a workflow running against a PR the author controls. It is safe here for one
+specific reason: **this action never checks out or executes the PR's code.** There is
+no `actions/checkout`, no install, no build. It reads PR metadata over the API and
+writes a label and a comment. Nothing the contributor wrote is ever run.
+
+If you add a checkout or build step to that workflow file, the guarantee is gone.
+Keep those in a separate `pull_request` workflow.
+
+### Inputs
+
+| Input | Default | Notes |
+|:--|:--|:--|
+| `pr-number` | the triggering PR | Set it to run against an arbitrary PR. |
+| `repository` | current repo | `owner/name`. |
+| `github-token` | `github.token` | Needs `pull-requests: write`. |
+| `comment` | `true` | Post/update the sticky comment. |
+| `label` | `true` | Apply labels. |
+| `fail-on` | *(empty)* | `CONFIRMED`, `REVIEW`, or both comma-separated. Empty never fails — blocking a PR on a heuristic is rarely what you want. |
+
+### Outputs
+
+`authorship`, `driveby`, `triage`, `ai-review-needed`, `hard-signals` — so a later
+step can gate on the result:
+
+```yaml
+      - uses: neolitec/bot-labeller@v1
+        id: bl
+      - if: steps.bl.outputs.ai-review-needed == 'true'
+        run: echo "send this one to a reading pass"
+```
+
+## Labels
+
+| Label | Colour | Meaning |
+|:--|:--|:--|
+| `ai-authored` | ![#57606a](https://placehold.co/12/57606a/57606a.png) `#57606a` slate | Machine authorship is self-declared. A **neutral fact** — deliberately not a warning colour. |
+| `authorship-unclear` | ![#bf8700](https://placehold.co/12/bf8700/bf8700.png) `#bf8700` gold | Circumstantial signals only; a reading pass is owed. |
+| `drive-by-bot` | ![#7d1128](https://placehold.co/12/7d1128/7d1128.png) `#7d1128` crimson | The only label that asserts a problem. |
+
+The colours carry the argument: grey for a fact, gold for attention, crimson for the
+one case that is actually a complaint. `authorship-unclear` is named that way rather
+than `needs-ai-review` because the latter reads as "review this with an AI" instead
+of "the authorship needs reviewing".
+
+Labels are created on demand, and a label that is no longer warranted is removed on
+re-run — so a rebase cannot leave a stale verdict behind.
+
 ## Standalone use
 
 The scorer runs perfectly well on its own:

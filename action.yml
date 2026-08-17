@@ -1,0 +1,149 @@
+name: 'bot-labeller'
+description: 'Score a pull request for machine authorship and drive-by automation, then label it and post a single sticky comment.'
+author: 'neolitec'
+
+branding:
+  icon: 'search'
+  color: 'gray-dark'
+
+inputs:
+  pr-number:
+    description: 'Pull request number. Defaults to the PR that triggered the workflow.'
+    required: false
+    default: ''
+  repository:
+    description: 'Repository in owner/name form. Defaults to the current one.'
+    required: false
+    default: ${{ github.repository }}
+  github-token:
+    description: >-
+      Token used for reading the PR and writing the label and comment. Needs
+      pull-requests: write. The default GITHUB_TOKEN is read-only on
+      pull_request events from forks — see the README on pull_request_target.
+    required: false
+    default: ${{ github.token }}
+  comment:
+    description: 'Post (or update) a sticky comment with the findings.'
+    required: false
+    default: 'true'
+  label:
+    description: 'Apply ai-authored / authorship-unclear / drive-by-bot as warranted.'
+    required: false
+    default: 'true'
+  fail-on:
+    description: >-
+      Fail the step when the triage verdict is one of these, comma-separated:
+      CONFIRMED, REVIEW. Empty means never fail — the default, because this is
+      an informational check and blocking on a heuristic is rarely what you want.
+    required: false
+    default: ''
+
+outputs:
+  authorship:
+    description: 'Authorship score, 0-100.'
+    value: ${{ steps.score.outputs.authorship }}
+  driveby:
+    description: 'Drive-by score, 0-100.'
+    value: ${{ steps.score.outputs.driveby }}
+  triage:
+    description: 'CONFIRMED, REVIEW or CLEAR.'
+    value: ${{ steps.score.outputs.triage }}
+  ai-review-needed:
+    description: 'true when the triage verdict is REVIEW.'
+    value: ${{ steps.score.outputs.ai-review-needed }}
+  hard-signals:
+    description: 'Count of self-declaring signals that fired.'
+    value: ${{ steps.score.outputs.hard-signals }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Resolve the pull request number
+      id: pr
+      shell: bash
+      env:
+        INPUT_PR: ${{ inputs.pr-number }}
+        EVENT_PR: ${{ github.event.pull_request.number }}
+      run: |
+        NUM="${INPUT_PR:-$EVENT_PR}"
+        if [ -z "$NUM" ]; then
+          echo "::error::no pull request number: pass pr-number, or run on a pull_request event" >&2
+          exit 1
+        fi
+        echo "number=$NUM" >> "$GITHUB_OUTPUT"
+
+    - name: Score the pull request
+      id: score
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        REPO: ${{ inputs.repository }}
+        PR: ${{ steps.pr.outputs.number }}
+        DO_LABEL: ${{ inputs.label }}
+      run: |
+        set -uo pipefail
+        # --json and --label compose in one invocation, so scoring and labelling
+        # share a single pass over the API. The label taxonomy lives in the script,
+        # not duplicated here — one implementation, one place to change it.
+        ARGS=(--repo "$REPO" --json)
+        [ "$DO_LABEL" = "true" ] && ARGS+=(--label)
+        # The scorer exits 10 (REVIEW) and 20 (CONFIRMED) by design, so a plain
+        # `set -e` would abort the step on a perfectly successful run.
+        "${GITHUB_ACTION_PATH}/scripts/bot-score.sh" "${ARGS[@]}" "$PR" > "$RUNNER_TEMP/bl-score.json"
+        rc=$?
+        if [ ! -s "$RUNNER_TEMP/bl-score.json" ]; then
+          echo "::error::scorer produced no output (exit $rc)" >&2
+          exit 1
+        fi
+        {
+          echo "authorship=$(jq -r '.authorship.score' "$RUNNER_TEMP/bl-score.json")"
+          echo "driveby=$(jq -r '.driveby.score' "$RUNNER_TEMP/bl-score.json")"
+          echo "triage=$(jq -r '.triage.verdict' "$RUNNER_TEMP/bl-score.json")"
+          echo "ai-review-needed=$(jq -r '.triage.aiReviewNeeded' "$RUNNER_TEMP/bl-score.json")"
+          echo "hard-signals=$(jq -r '.hardSignals' "$RUNNER_TEMP/bl-score.json")"
+        } >> "$GITHUB_OUTPUT"
+        jq -r '"::notice::bot-labeller \(.triage.verdict) — authorship \(.authorship.score)/100, drive-by \(.driveby.score)/100"' \
+          "$RUNNER_TEMP/bl-score.json"
+
+    - name: Post or update the sticky comment
+      if: inputs.comment == 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        REPO: ${{ inputs.repository }}
+        PR: ${{ steps.pr.outputs.number }}
+      run: |
+        set -uo pipefail
+        "${GITHUB_ACTION_PATH}/scripts/render-comment.sh" < "$RUNNER_TEMP/bl-score.json" > "$RUNNER_TEMP/bl-comment.md"
+
+        # One comment per PR: find the previous one by its HTML marker and edit it,
+        # rather than appending a new report on every push.
+        EXISTING="$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+          --jq 'map(select(.body | startswith("<!-- bot-labeller -->"))) | last | .id // empty')"
+
+        if [ -n "$EXISTING" ]; then
+          gh api -X PATCH "repos/$REPO/issues/comments/$EXISTING" \
+            -F body=@"$RUNNER_TEMP/bl-comment.md" >/dev/null
+          echo "updated comment $EXISTING"
+        else
+          gh api -X POST "repos/$REPO/issues/$PR/comments" \
+            -F body=@"$RUNNER_TEMP/bl-comment.md" >/dev/null
+          echo "posted a new comment"
+        fi
+
+    - name: Enforce fail-on
+      if: inputs.fail-on != ''
+      shell: bash
+      env:
+        TRIAGE: ${{ steps.score.outputs.triage }}
+        FAIL_ON: ${{ inputs.fail-on }}
+      run: |
+        set -uo pipefail
+        IFS=','; for v in $FAIL_ON; do
+          v="$(printf '%s' "$v" | tr -d '[:space:]')"
+          if [ "$v" = "$TRIAGE" ]; then
+            echo "::error::triage verdict $TRIAGE is in fail-on ($FAIL_ON)" >&2
+            exit 1
+          fi
+        done
+        echo "triage verdict $TRIAGE is not in fail-on ($FAIL_ON)"

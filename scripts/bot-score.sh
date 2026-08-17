@@ -389,6 +389,72 @@ else
   EXIT_CODE=0
 fi
 
+# -------------------------------------------------------------------- labelling
+#
+# Runs before the output block so that `--json --label` composes in a single
+# invocation: the GitHub Action needs both the machine-readable result and the
+# labels, and paying for two API round-trips to get them would be silly.
+#
+# Label taxonomy. The colours encode how much judgement each label carries:
+#
+#   ai-authored         slate grey  — a neutral fact, deliberately not a warning
+#                                     colour. Disclosed agent use is normal.
+#   authorship-unclear  gold        — attention: something is unresolved and a
+#                                     reading pass is owed.
+#   drive-by-bot        crimson     — the only label that asserts a problem.
+#
+# Named "authorship-unclear" rather than "needs-ai-review" because the latter
+# reads as "review this with an AI" instead of "the authorship needs reviewing".
+#
+# case, not an associative array: macOS ships bash 3.2, which has no `declare -A`.
+label_color() {
+  case "$1" in
+    ai-authored)        echo "57606a" ;;
+    authorship-unclear) echo "bf8700" ;;
+    drive-by-bot)       echo "7d1128" ;;
+    *)                  echo "ededed" ;;
+  esac
+}
+label_desc() {
+  case "$1" in
+    ai-authored)        echo "Machine authorship is self-declared (not a judgement)" ;;
+    authorship-unclear) echo "Circumstantial signals only — authorship needs a reading pass" ;;
+    drive-by-bot)       echo "Account behaves like an unsolicited automation pipeline" ;;
+    *)                  echo "applied by bot-labeller" ;;
+  esac
+}
+
+ALL_LABELS="ai-authored authorship-unclear drive-by-bot"
+
+if [ "$DO_LABEL" = "1" ] && [ -n "${PR_NUMBER:-}" ]; then
+  WANTED=""
+  [ "$TRIAGE" = "CONFIRMED" ] && WANTED="ai-authored"
+  [ "$TRIAGE" = "REVIEW" ]    && WANTED="authorship-unclear"
+  [ "$DRIVEBY_SCORE" -ge 70 ] && WANTED="${WANTED:+$WANTED }drive-by-bot"
+
+  # Drop any label this tool previously applied but no longer warrants, so a
+  # re-run after a rebase or a force-push cannot leave a stale verdict behind.
+  for l in $ALL_LABELS; do
+    keep=0
+    for k in $WANTED; do [ "$k" = "$l" ] && keep=1; done
+    if [ "$keep" = "0" ]; then
+      gh api -X DELETE "repos/$REPO/issues/$PR_NUMBER/labels/$l" >/dev/null 2>&1 || true
+    fi
+  done
+
+  if [ -n "$WANTED" ]; then
+    for l in $WANTED; do
+      gh label create "$l" --repo "$REPO" \
+        --color "$(label_color "$l")" --description "$(label_desc "$l")" >/dev/null 2>&1 || true
+      gh api -X POST "repos/$REPO/issues/$PR_NUMBER/labels" -f "labels[]=$l" >/dev/null 2>&1 \
+        || printf 'warning: could not apply label %s\n' "$l" >&2
+    done
+    LABELS_APPLIED="$WANTED"
+  else
+    LABELS_APPLIED=""
+  fi
+fi
+
 # ---------------------------------------------------------------------- output
 
 if [ "$JSON_OUT" = "1" ]; then
@@ -427,21 +493,9 @@ done
 printf '\n  Heuristics, not proof. AI assistance is not misconduct — high AUTHORSHIP\n'
 printf '  with low DRIVE-BY usually just means a maintainer used an agent.\n\n'
 
-# ----------------------------------------------------------------- labelling
-
 if [ "$DO_LABEL" = "1" ] && [ -n "${PR_NUMBER:-}" ]; then
-  LABELS=""
-  [ "$TRIAGE" = "CONFIRMED" ] && LABELS="ai-authored"
-  [ "$TRIAGE" = "REVIEW" ]    && LABELS="needs-ai-review"
-  [ "$DRIVEBY_SCORE" -ge 70 ] && LABELS="${LABELS:+$LABELS,}drive-by"
-  if [ -n "$LABELS" ]; then
-    IFS=','; for l in $LABELS; do
-      gh label create "$l" --repo "$REPO" --color ededed --description "applied by bot-labeller" 2>/dev/null || true
-    done; unset IFS
-    gh api -X POST "repos/$REPO/issues/$PR_NUMBER/labels" -f "labels[]=${LABELS//,/&labels[]=}" >/dev/null 2>&1 \
-      || gh pr edit "$PR_NUMBER" --repo "$REPO" $(printf -- '--add-label %s ' ${LABELS//,/ }) >/dev/null 2>&1 \
-      || printf '  warning: could not apply labels (%s)\n\n' "$LABELS" >&2
-    printf '  labels applied: %s\n\n' "$LABELS"
+  if [ -n "${LABELS_APPLIED:-}" ]; then
+    printf '  labels applied: %s\n\n' "$LABELS_APPLIED"
   else
     printf '  no label warranted\n\n'
   fi

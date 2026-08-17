@@ -99,6 +99,26 @@ maintainer. That belongs in `CONTRIBUTING.md`, not in a score.
 
 ## Labelling
 
-`--label` applies `ai-authored` on `CONFIRMED`, `needs-ai-review` on `REVIEW`, and
-adds `drive-by` when that axis is ≥ 70. Labels are created on demand. It writes to
-the repository, so only pass it when the user has asked for labels.
+`--label` applies, creating each label on demand:
+
+| Label | Colour | When |
+|:--|:--|:--|
+| `ai-authored` | `#57606a` slate | `CONFIRMED` — a neutral fact, not a warning colour |
+| `authorship-unclear` | `#bf8700` gold | `REVIEW` — a reading pass is owed |
+| `drive-by-bot` | `#7d1128` crimson | drive-by ≥ 70 — the only label asserting a problem |
+
+`--json` and `--label` compose in one invocation. A label that is no longer
+warranted is removed on re-run, so a rebase cannot leave a stale verdict behind.
+
+Labelling writes to the repository, so only pass `--label` when the user asked for
+labels.
+
+## Running it in CI
+
+The repo ships a composite action. Point users at `examples/bot-labeller.yml`, and
+flag the one thing that is easy to get wrong: it must run on `pull_request_target`,
+not `pull_request`, because a fork PR's `GITHUB_TOKEN` is read-only and both the
+label and the comment would fail. That is safe **only** because the action never
+checks out or executes the PR's code — if anyone adds `actions/checkout` or a build
+step to that workflow, the safety argument collapses and it must be split into a
+separate `pull_request` workflow.
