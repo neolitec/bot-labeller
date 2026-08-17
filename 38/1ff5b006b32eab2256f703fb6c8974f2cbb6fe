@@ -1,0 +1,23 @@
+assets/logo.svg
+  s_8a01906a06a194::t_b23b916d0d0848 15
+  s_8a01906a06a194::t_9ad69a00dcc48b 19-20
+assets/social-preview.svg
+  s_8a01906a06a194::t_8e76b4094476f1 14
+  s_8a01906a06a194::t_088d85b926c348 11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "381ff5b006b32eab2256f703fb6c8974f2cbb6fe",
+  "prompts": {},
+  "sessions": {
+    "s_8a01906a06a194": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d28c462c-114c-41e1-be5b-a0482491aef5",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Kevin Manson <kevin.manson@qohash.com>"
+    }
+  }
+}
