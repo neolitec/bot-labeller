@@ -1,0 +1,14 @@
+SKILL.md
+  h_bf4a198a3db647 26-27,104
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "a936a1dd55cb29475385528dc068690a07f9d024",
+  "prompts": {},
+  "humans": {
+    "h_bf4a198a3db647": {
+      "author": "Kevin Manson <kevin.manson@qohash.com>"
+    }
+  }
+}
