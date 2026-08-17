@@ -23,7 +23,8 @@ separately is the whole point of this skill:
 ./scripts/bot-score.sh https://github.com/owner/repo/pull/12
 ./scripts/bot-score.sh @some-user                           # account only
 ./scripts/bot-score.sh --json 187                           # machine-readable
-./scripts/bot-score.sh --label 187                           # apply GitHub labels
+./scripts/bot-score.sh --label 187                          # apply labels (write-once)
+./scripts/bot-score.sh --recheck 187                        # re-score a labelled PR, read-only
 ```
 
 Requires `gh` (authenticated) and `jq`. It reads GitHub over REST only, so it keeps
@@ -100,9 +101,7 @@ maintainer. That belongs in `CONTRIBUTING.md`, not in a score.
 
 ## Labelling
 
-`--label` applies, creating each label on demand:
-
-All labels share the `bot:` prefix so the family groups together and can be filtered
+`--label` creates each label on demand and applies it. All labels share the `bot:` prefix so the family groups together and can be filtered
 in one search.
 
 | Label | Colour | When |
