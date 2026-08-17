@@ -1,19 +1,21 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="bot-labeller logo: a GitHub label tag with a robot face">
   <!-- The tag IS the robot: the product labels bots, so the label wears the face.
-       Palette is the label taxonomy itself — slate #57606a (bot:authored, a neutral
-       fact) and gold #bf8700 (bot:unclear, worth a look). Mid-tone colours only, so
-       the mark reads on both light and dark GitHub without a theme swap. -->
-  <g transform="rotate(-6 256 256)" fill="none" stroke="#57606a" stroke-width="18" stroke-linejoin="round" stroke-linecap="round">
+       Palette is the label taxonomy itself — blue #1f6feb (bot:authored, an
+       informational fact) and yellow #fbca04 (bot:unclear, worth a look). The red
+       of bot:drive-by is deliberately absent: the logo should not lead with the
+       alarm case. Saturated mid-tones read on both light and dark GitHub without
+       a theme swap. -->
+  <g transform="rotate(-6 256 256)" fill="none" stroke="#1f6feb" stroke-width="18" stroke-linejoin="round" stroke-linecap="round">
     <!-- tag body, pointed end left -->
     <path d="M62 256 L182 164 H396 Q430 164 430 198 V314 Q430 348 396 348 H182 Z"/>
     <!-- punched hole -->
     <circle cx="152" cy="256" r="19"/>
     <!-- antenna -->
     <path d="M306 164 V118"/>
-    <circle cx="306" cy="100" r="15" fill="#bf8700" stroke="none"/>
-    <!-- eyes: one slate (declared, a fact), one gold (scanning, unclear) -->
-    <rect x="236" y="216" width="44" height="44" rx="11" fill="#57606a" stroke="none"/>
-    <rect x="318" y="216" width="44" height="44" rx="11" fill="#bf8700" stroke="none"/>
+    <circle cx="306" cy="100" r="15" fill="#fbca04" stroke="none"/>
+    <!-- eyes: one blue (declared, a fact), one yellow (scanning, unclear) -->
+    <rect x="236" y="216" width="44" height="44" rx="11" fill="#1f6feb" stroke="none"/>
+    <rect x="318" y="216" width="44" height="44" rx="11" fill="#fbca04" stroke="none"/>
     <!-- mouth -->
     <path d="M250 302 H366" stroke-width="16"/>
   </g>

@@ -10,9 +10,9 @@ drive-by automation, applies an honest label, and posts a single evidence
 report. Deterministic, dependency-free, and it never runs the contributor's code.
 
 [![ci](https://github.com/neolitec/bot-labeller/actions/workflows/ci.yml/badge.svg)](https://github.com/neolitec/bot-labeller/actions/workflows/ci.yml)
-[![release](https://img.shields.io/github/v/release/neolitec/bot-labeller?logo=github&color=57606a)](https://github.com/neolitec/bot-labeller/releases)
-[![marketplace](https://img.shields.io/badge/marketplace-bot--labeller-bf8700?logo=github)](https://github.com/marketplace/actions/bot-labeller)
-[![license: MIT](https://img.shields.io/badge/license-MIT-57606a)](LICENSE)
+[![release](https://img.shields.io/github/v/release/neolitec/bot-labeller?logo=github&color=1f6feb)](https://github.com/neolitec/bot-labeller/releases)
+[![marketplace](https://img.shields.io/badge/marketplace-bot--labeller-1f6feb?logo=github)](https://github.com/marketplace/actions/bot-labeller)
+[![license: MIT](https://img.shields.io/badge/license-MIT-1f6feb)](LICENSE)
 
 [Quick start](#quick-start) ·
 [How it works](#two-scores-not-one) ·
@@ -121,13 +121,15 @@ and the whole set is one search away — `label:bot:authored`, or just scan for
 
 | Label | Meaning |
 |:--|:--|
-| ![bot:authored](https://img.shields.io/badge/bot%3Aauthored-57606a?style=flat-square) | Machine authorship is self-declared. A **neutral fact** — deliberately not a warning colour. |
-| ![bot:unclear](https://img.shields.io/badge/bot%3Aunclear-bf8700?style=flat-square) | Circumstantial signals only; a reading pass is owed. |
-| ![bot:drive-by](https://img.shields.io/badge/bot%3Adrive--by-7d1128?style=flat-square) | The only label that asserts a problem. |
+| ![bot:authored](assets/labels/bot-authored.svg) | Machine authorship is self-declared. A **neutral fact** — informational blue, deliberately not a warning colour. |
+| ![bot:unclear](assets/labels/bot-unclear.svg) | Circumstantial signals only; a reading pass is owed. |
+| ![bot:drive-by](assets/labels/bot-drive-by.svg) | The only label that asserts a problem. |
 
-The colours carry the argument: slate for a fact, gold for attention, crimson for
-the one case that is actually a complaint. Labels are created on demand — nothing
-to set up in the repository first.
+The colours carry the argument, in hues every GitHub user already knows: blue for
+a fact (like `documentation`), yellow for attention, red for the one case that is
+actually a complaint (like `bug`). Labels are created on demand — nothing to set
+up in the repository first — and if your repo already has them, your colours are
+left alone.
 
 Self-declared bots (GitHub Apps, `[bot]` accounts — dependabot, renovate) are
 **exempt**: no label, no comment. They already told you what they are.
