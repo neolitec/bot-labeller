@@ -1,0 +1,37 @@
+SKILL.md
+  s_e3ad0fe7f05d5b::t_e4121869027b88 105-107,110-114,116-125,130-131
+  s_e3ad0fe7f05d5b::t_6fb1f5d8c80e43 46,132
+action.yml
+  s_e3ad0fe7f05d5b::t_b5e086c0404311 111-112,114
+  s_e3ad0fe7f05d5b::t_989db450491b70 30-33
+  s_e3ad0fe7f05d5b::t_234c4fa0ae987e 52
+scripts/bot-score.sh
+  s_e3ad0fe7f05d5b::t_4a6525ace09bfd 60,63-65
+  s_e3ad0fe7f05d5b::t_afd94d7f70fd6b 200
+  s_e3ad0fe7f05d5b::t_ca5ee01892b2c3 29-33,36-37
+  s_e3ad0fe7f05d5b::t_98c34ab920da6e 224-260
+  s_e3ad0fe7f05d5b::t_3420da366d453b 450-452,454,456-460,465-468,473-476,482-484,486-488
+  s_e3ad0fe7f05d5b::t_9dacfe531920c5 80-82
+  s_e3ad0fe7f05d5b::t_36cc16e1f8a823 66
+README.md
+  s_e3ad0fe7f05d5b::t_98d73c5ce95410 150-151,188,194-195
+  s_e3ad0fe7f05d5b::t_fc85380ed110d7 61-65,91
+  s_e3ad0fe7f05d5b::t_a653f0086fde46 108-111,114-116,119-131,133-139
+  s_e3ad0fe7f05d5b::t_b57177641590aa 196
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "4cae8af5cc85ff451a70edaac8868b9fcd82f82c",
+  "prompts": {},
+  "sessions": {
+    "s_e3ad0fe7f05d5b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "71b1753b-1555-47a8-8ba4-0f68954d5e8b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Kevin Manson <kevin.manson@qohash.com>"
+    }
+  }
+}
