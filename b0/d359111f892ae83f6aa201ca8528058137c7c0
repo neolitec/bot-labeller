@@ -1,0 +1,33 @@
+scripts/bot-score.sh
+  s_e3ad0fe7f05d5b::t_df8834b6eff143 392-457
+  s_e3ad0fe7f05d5b::t_9df0be514a3078 497-498
+scripts/render-comment.sh
+  s_e3ad0fe7f05d5b::t_475c8cee4ebb5a 1-74
+SKILL.md
+  s_e3ad0fe7f05d5b::t_e76ab5e6a5f5cf 102-124
+examples/bot-labeller.yml
+  s_e3ad0fe7f05d5b::t_b649a07992f581 1-46
+action.yml
+  s_e3ad0fe7f05d5b::t_c232e1c1960e16 82,85-89,92
+  s_e3ad0fe7f05d5b::t_c4509bbe39acfc 94,99-103,117,126,130
+  s_e3ad0fe7f05d5b::t_0cf0cb63094937 1-81,83-84,90-91,93,95-98,104,107-116,118-125,127-129,131-149
+  s_e3ad0fe7f05d5b::t_d0e7d30f72a4ef 105-106
+README.md
+  s_e3ad0fe7f05d5b::t_3b8318f1df3926 39-117
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "b0d359111f892ae83f6aa201ca8528058137c7c0",
+  "prompts": {},
+  "sessions": {
+    "s_e3ad0fe7f05d5b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "71b1753b-1555-47a8-8ba4-0f68954d5e8b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Kevin Manson <kevin.manson@qohash.com>"
+    }
+  }
+}
