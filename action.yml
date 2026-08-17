@@ -49,7 +49,9 @@ outputs:
     description: 'Drive-by score, 0-100.'
     value: ${{ steps.score.outputs.driveby }}
   triage:
-    description: 'CONFIRMED, REVIEW, CLEAR, or ALREADY_LABELLED (a human owns it).'
+    description: >-
+      CONFIRMED, REVIEW, CLEAR, DECLARED_BOT (a self-declared bot, exempt), or
+      ALREADY_LABELLED (a human owns it).
     value: ${{ steps.score.outputs.triage }}
   ai-review-needed:
     description: 'true when the triage verdict is REVIEW.'
@@ -124,8 +126,13 @@ runs:
 
     # Skipped once a label exists: the run stopped before scoring, so there is
     # nothing new to say, and the comment from the first pass already stands.
+    # Skipped for a declared bot too — dependabot does not need a report telling
+    # it that it is dependabot on every dependency bump.
     - name: Post or update the sticky comment
-      if: inputs.comment == 'true' && steps.score.outputs.triage != 'ALREADY_LABELLED'
+      if: >-
+        inputs.comment == 'true'
+        && steps.score.outputs.triage != 'ALREADY_LABELLED'
+        && steps.score.outputs.triage != 'DECLARED_BOT'
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.github-token }}

@@ -45,6 +45,7 @@ So the triage does **not** key off the total:
 | Triage | Condition | Exit | Action |
 |:--|:--|:--|:--|
 | `ALREADY_LABELLED` | a `bot:` label is already on the PR | 30 | Stop. Report the existing label; a human owns the verdict. |
+| `DECLARED_BOT` | author is a GitHub App (`app/…`, `…[bot]`) or account type `Bot` | 0 | Exempt — say so and stop. Nothing labelled, nothing commented. |
 | `CONFIRMED` | any hard signal | 20 | Report it. **No AI pass** — the evidence already speaks. |
 | `REVIEW` | no hard signal **and** authorship ≥ 25 | 10 | **Run the AI reading pass below.** |
 | `REVIEW` | no hard signal **and** drive-by ≥ 45 | 10 | **Run the AI reading pass below.** |

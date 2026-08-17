@@ -74,6 +74,8 @@ while [ $# -gt 0 ]; do
     # Exists so the band matrix is testable: real PRs rarely cover every corner.
     #   bot-score.sh --triage-only <authorship> <driveby> <hardSignals>
     --triage-only) TRIAGE_ONLY=1; AUTHOR_SCORE="${2:?}"; DRIVEBY_SCORE="${3:?}"; HARD_HITS="${4:?}"; shift 4 ;;
+    # Assert the declared-bot exemption without needing a live App-authored PR.
+    --declared-bot) DECLARED_BOT=1; shift ;;
     --repo)  REPO="${2:-}"; shift 2 ;;
     --json)  JSON_OUT=1; shift ;;
     --label) DO_LABEL=1; shift ;;
@@ -340,7 +342,7 @@ fi
 if printf '%s' "$LOGIN" | grep -qE '^app/|\[bot\]$'; then
   addh authorship 100 "author is a declared GitHub App (\`$LOGIN\`) — machine by definition"
   note "declared App: volume is the point of a bot, so DRIVE-BY is not scored"
-  AUTHOR_SCORE=100; DRIVEBY_SCORE=0; EV_COUNT=0; SKIP_ACCOUNT=1
+  AUTHOR_SCORE=100; DRIVEBY_SCORE=0; EV_COUNT=0; SKIP_ACCOUNT=1; DECLARED_BOT=1
 fi
 
 if [ "${SKIP_ACCOUNT:-0}" != "1" ]; then
@@ -352,7 +354,12 @@ U_REPOS="$(jq -r '.public_repos' <<<"$USER_JSON")"
 U_FOLLOWERS="$(jq -r '.followers' <<<"$USER_JSON")"
 U_BIO="$(jq -r '.bio // ""' <<<"$USER_JSON")"
 
-[ "$U_TYPE" = "Bot" ] && addh authorship 100 "account type is Bot" || true
+# Same conclusion as the login check above, reached from the account record
+# instead — GitHub itself calls this a Bot, so there is nothing left to triage.
+if [ "$U_TYPE" = "Bot" ]; then
+  addh authorship 100 "account type is Bot"
+  DECLARED_BOT=1
+fi
 
 AGE_DAYS=$(( ( $(date -u +%s) - $(to_epoch "$U_CREATED") ) / 86400 ))
 AGE_MONTHS=$(( AGE_DAYS / 30 )); [ "$AGE_MONTHS" -gt 0 ] || AGE_MONTHS=1
@@ -421,9 +428,23 @@ band() {
   else echo "little evidence"; fi
 }
 
+# An account that declares itself a bot — a GitHub App, or type Bot — is outside
+# the question this tool asks. The point is not "was a machine involved", which
+# the [bot] badge already answers and dependabot restates with its own
+# `automated` label; it is "is a machine being passed off as a person". Scoring a
+# declared bot produces a CONFIRMED that carries no information, and labelling it
+# puts a redundant tag plus a full report on every dependency bump. So it gets
+# its own verdict, no label and no comment, and exits 0.
+#
+# Note this is not leniency: a declared bot is *exempt*, not cleared. The
+# evidence above is still recorded, so `--json` consumers can see why.
+if [ "${DECLARED_BOT:-0}" = "1" ]; then
+  TRIAGE="DECLARED_BOT"
+  TRIAGE_LINE="author declares itself a bot (\`$LOGIN\`) — nothing to triage, not labelled"
+  EXIT_CODE=0
 # The recommendation turns on signal QUALITY, not just the total. One hard signal
 # settles authorship; a pile of soft ones does not, however tall.
-if [ "$HARD_HITS" -gt 0 ]; then
+elif [ "$HARD_HITS" -gt 0 ]; then
   TRIAGE="CONFIRMED"
   TRIAGE_LINE="machine authorship is self-declared — no reading pass needed"
   EXIT_CODE=20
@@ -477,7 +498,7 @@ label_desc() {
   esac
 }
 
-if [ "$DO_LABEL" = "1" ] && [ -n "${PR_NUMBER:-}" ]; then
+if [ "$DO_LABEL" = "1" ] && [ -n "${PR_NUMBER:-}" ] && [ "${DECLARED_BOT:-0}" != "1" ]; then
   WANTED=""
   [ "$TRIAGE" = "CONFIRMED" ] && WANTED="${LABEL_PREFIX}authored"
   [ "$TRIAGE" = "REVIEW" ]    && WANTED="${LABEL_PREFIX}unclear"

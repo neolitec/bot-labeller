@@ -11,11 +11,12 @@ cd "$(dirname "$0")/.."
 
 PASS=0; FAIL=0
 
-check() { # authorship driveby hard  expected_verdict expected_exit  why
+check() { # authorship driveby hard  expected_verdict expected_exit  why  [extra flag]
   local a="$1" d="$2" h="$3" want="$4" want_exit="$5" why="$6" got got_exit
-  got="$(./scripts/bot-score.sh --triage-only "$a" "$d" "$h" --json 2>/dev/null | jq -r .triage.verdict)"
+  local extra=("${7:-}"); [ -n "${7:-}" ] || extra=()
+  got="$(./scripts/bot-score.sh --triage-only "$a" "$d" "$h" "${extra[@]+"${extra[@]}"}" --json 2>/dev/null | jq -r .triage.verdict)"
 
-  got_exit="$(./scripts/bot-score.sh --triage-only "$a" "$d" "$h" >/dev/null 2>&1; echo $?)"
+  got_exit="$(./scripts/bot-score.sh --triage-only "$a" "$d" "$h" "${extra[@]+"${extra[@]}"}" >/dev/null 2>&1; echo $?)"
   if [ "$got" = "$want" ] && [ "$got_exit" = "$want_exit" ]; then
     printf '  ok    a=%-3s d=%-3s hard=%s -> %-9s %s\n' "$a" "$d" "$h" "$got" "$why"
     PASS=$((PASS + 1))
@@ -45,6 +46,12 @@ check  24   0 0 CLEAR      0 "just below the edge"
 check   0  45 0 REVIEW    10 "clean PR, pipeline-shaped account"
 check   0  44 0 CLEAR      0 "clean PR, unremarkable account"
 check  12  25 0 CLEAR      0 "the human control case (#163)"
+
+# A self-declaring bot is exempt, not scored. Its 100/hard-signal shape is the
+# same one that yields CONFIRMED above, so the exemption has to win on its own —
+# otherwise dependabot collects a redundant label and a report per bump.
+check 100   0 1 DECLARED_BOT 0 "dependabot / release-please (#137, #118)" --declared-bot
+check 100 100 6 DECLARED_BOT 0 "exemption outranks a drive-by shape too"    --declared-bot
 
 printf '\n  %d passed, %d failed\n\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

@@ -186,6 +186,7 @@ Triage therefore keys off signal *quality*, not the total:
 | Triage | Condition | Exit code | Meaning |
 |:--|:--|:--|:--|
 | `ALREADY_LABELLED` | a `bot:` label is present | `30` | Stop. A human owns this verdict. |
+| `DECLARED_BOT` | author is a GitHub App or type `Bot` | `0` | Exempt. No label, no comment. |
 | `CONFIRMED` | any hard signal | `20` | Settled. No AI pass needed. |
 | `REVIEW` | no hard signal, authorship ≥ 25 | `10` | Ambiguous. Send to an AI reading pass. |
 | `REVIEW` | no hard signal, drive-by ≥ 45 | `10` | Account looks like a pipeline. |
