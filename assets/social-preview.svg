@@ -8,10 +8,10 @@
       <path d="M62 256 L182 164 H396 Q430 164 430 198 V314 Q430 348 396 348 H182 Z"/>
       <circle cx="152" cy="256" r="19"/>
       <path d="M306 164 V118"/>
-      <circle cx="306" cy="100" r="15" fill="#fbca04" stroke="none"/>
+      <circle cx="306" cy="97" r="21" fill="#fbca04" stroke="none"/>
       <rect x="236" y="216" width="44" height="44" rx="11" fill="#1f6feb" stroke="none"/>
       <rect x="318" y="216" width="44" height="44" rx="11" fill="#fbca04" stroke="none"/>
-      <path d="M250 302 H366" stroke-width="16"/>
+      <path d="M250 296 Q308 315 366 296" stroke-width="16"/>
     </g>
   </g>
   <g font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">

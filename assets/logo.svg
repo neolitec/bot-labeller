@@ -12,11 +12,11 @@
     <circle cx="152" cy="256" r="19"/>
     <!-- antenna -->
     <path d="M306 164 V118"/>
-    <circle cx="306" cy="100" r="15" fill="#fbca04" stroke="none"/>
+    <circle cx="306" cy="97" r="21" fill="#fbca04" stroke="none"/>
     <!-- eyes: one blue (declared, a fact), one yellow (scanning, unclear) -->
     <rect x="236" y="216" width="44" height="44" rx="11" fill="#1f6feb" stroke="none"/>
     <rect x="318" y="216" width="44" height="44" rx="11" fill="#fbca04" stroke="none"/>
-    <!-- mouth -->
-    <path d="M250 302 H366" stroke-width="16"/>
+    <!-- mouth: a hint of a smile, not a grin -->
+    <path d="M250 296 Q308 315 366 296" stroke-width="16"/>
   </g>
 </svg>
