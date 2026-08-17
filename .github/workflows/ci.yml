@@ -1,0 +1,23 @@
+# The band matrix decides whether a PR costs a human reading pass, so it is the
+# part worth pinning down on every change. self-test.sh runs entirely offline
+# (--triage-only), so there is no token, no network and no rate limit involved.
+
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  self-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Triage band matrix
+        run: ./scripts/self-test.sh
