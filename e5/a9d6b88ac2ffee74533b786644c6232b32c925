@@ -1,0 +1,34 @@
+README.md
+  s_8a01906a06a194::t_502d514ec98f76 13-15
+  s_8a01906a06a194::t_8dcc7f94f6cb5c 124-132
+scripts/bot-score.sh
+  s_8a01906a06a194::t_020ab72c7c02ca 475-476,478-486,491-493
+SKILL.md
+  s_8a01906a06a194::t_e6af8d766139ba 110-112
+assets/labels/bot-authored.svg
+  s_8a01906a06a194::t_8503eb302794cb 1-4
+assets/social-preview.svg
+  s_8a01906a06a194::t_921c85468957d3 7,11-13,24,26-28
+assets/labels/bot-unclear.svg
+  s_8a01906a06a194::t_2bb264506b56a2 1-4
+assets/logo.svg
+  s_8a01906a06a194::t_d7525480141ac9 3-8,15-18
+assets/labels/bot-drive-by.svg
+  s_8a01906a06a194::t_a665fc36fcbacb 1-4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "e5a9d6b88ac2ffee74533b786644c6232b32c925",
+  "prompts": {},
+  "sessions": {
+    "s_8a01906a06a194": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d28c462c-114c-41e1-be5b-a0482491aef5",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Kevin Manson <kevin.manson@qohash.com>"
+    }
+  }
+}
